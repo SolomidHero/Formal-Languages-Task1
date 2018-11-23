@@ -1,68 +1,67 @@
 # All right reserved(lol) by Dmitry Sadykov (gr. 798)
 # Practice #1 (var. 19)
 
+from dataclasses import dataclass
+
+@dataclass
+class Word:
+  is_wildcarded: bool   # all symbols in subword are wildcard
+  wildcard_length: int  # length of wildcards suffix (may be a number when infinite)
+  is_infinite: bool     # if infinite wildcard suffix in subword
+
 def find_max_suff_len(string):
   try:
     expr, wildcard = get_expression(string)
   except (ValueError, TypeError):
     return 'ExpressionError'
 
-  # subwords stacks for:
-  all_wc = [] # all symbols in subword are wildcard
-  wc_len = [] # length of wildcards suffix (may be a number when infinite)
-  inf_wc = [] # if infinite wildcard suffix in subword
+  # subwords stack of class words:
+  subword = list()
 
   for symb in expr:
     # for disjunction
     if symb == '+':
-      if len(wc_len) < 2:
+      if len(subword) < 2:
         return 'ExpressionError'
-      if wc_len[-2] < wc_len[-1]:
-        wc_len[-2] = wc_len[-1]
-      all_wc[-2] = all_wc[-2] or all_wc[-1]
-      all_wc.pop()
-      wc_len.pop()
-      inf_wc.pop()
+      if subword[-2].wildcard_length < subword[-1].wildcard_length:
+        subword[-2].wildcard_length = subword[-1].wildcard_length
+      subword[-2].is_wildcarded = subword[-2].is_wildcarded or subword[-1].is_wildcarded
+      subword.pop()
 
     # for concatenation
     elif symb == '.':
-      if len(wc_len) < 2:
+      if len(subword) < 2:
         return 'ExpressionError'
-      if all_wc[-1]:
-        wc_len[-2] += wc_len[-1]
+      if subword[-1].is_wildcarded:
+        subword[-2].wildcard_length += subword[-1].wildcard_length
       else:
-        wc_len[-2] = wc_len[-1]
-      inf_wc[-2] = inf_wc[-1]
-      all_wc[-2] = all_wc[-2] and all_wc[-1]
-      all_wc.pop()
-      wc_len.pop()
-      inf_wc.pop()
+        subword[-2].wildcard_length = subword[-1].wildcard_length
+      subword[-2].is_infinite = subword[-1].is_infinite
+      subword[-2].is_wildcarded = subword[-2].is_wildcarded and subword[-1].is_wildcarded
+      subword.pop()
 
     # for Kleene's star
     elif symb == '*':
-      if len(wc_len) < 1:
+      if len(subword) < 1:
         return 'ExpressionError'
-      if all_wc[-1]:
-        inf_wc[-1] = True
-      elif len(wc_len) > 1 and wc_len[-2] > wc_len[-1]:
-        all_wc[-1] = True
-        wc_len[-1] = 0
+      if subword[-1].is_wildcarded:
+        subword[-1].is_infinite = True
+      elif len(subword) > 1 and subword[-2].wildcard_length > subword[-1].wildcard_length:
+        subword[-1].is_wildcarded = True
+        subword[-1].wildcard_length = 0
 
     # for symbols
     else:
-      inf_wc.append(False)
       if (symb == wildcard):
-        all_wc.append(True)
-        wc_len.append(1)
+        subword.append(Word(True, 1, False))
       else:
-        all_wc.append(False)
-        wc_len.append(0)
+        subword.append(Word(False, 0, False))
 
-  if len(all_wc) != 1:
+  if len(subword) != 1:
     return 'ExpressionError'
-  if inf_wc[0] == True:
+  if subword[0].is_infinite == True:
     return 'INF'
-  return wc_len[0]
+  return subword[0].wildcard_length
 
 
 def get_expression(string):
